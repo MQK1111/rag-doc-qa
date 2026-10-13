@@ -19,16 +19,18 @@ st.write("基于向量检索的 RAG 系统，可以针对本地文档提问。")
 # ========== 初始化向量库 ==========
 def init_collection():
     client = chromadb.Client()
-    # 先删除旧的集合（如果存在），避免重复创建报错
-    try:
-        client.delete_collection(name="my_docs")
-    except:
-        pass
-    collection = client.create_collection(name="my_docs")
+    collection = client.get_or_create_collection(name="my_docs")
+
+    # 清空旧数据
+    existing = collection.get()
+    if existing["ids"]:
+        collection.delete(ids=existing["ids"])
+
     with open("notes.txt", "r", encoding="utf-8") as f:
         document = f.read()
     chunks = document.split("\n")
     chunks = [c.strip() for c in chunks if c.strip()]
+    print("读到的片段：", chunks)
     collection.add(
         documents=chunks,
         ids=[str(i) for i in range(len(chunks))]
@@ -38,7 +40,7 @@ def init_collection():
 collection = init_collection()
 
 # ========== 检索函数 ==========
-def retrieve(question, top_k=2):
+def retrieve(question, top_k=5):
     results = collection.query(
         query_texts=[question],
         n_results=top_k
